@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "iCAN Financial - BCA Sync",
+  "version": "1.0.0",
+  "description": "Auto-sync transaksi dari myBCA ke iCAN Financial dashboard",
+  "permissions": ["activeTab", "storage", "alarms"],
+  "host_permissions": [
+    "https://mybca.bca.co.id/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon48.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mybca.bca.co.id/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
