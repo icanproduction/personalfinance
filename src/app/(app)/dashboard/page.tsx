@@ -9,6 +9,8 @@ import type { BudgetStatus, Transaction } from '@/types/database'
 import BudgetBar from '@/components/ui/BudgetBar'
 import TransactionItem from '@/components/ui/TransactionItem'
 import AddTransactionSheet from '@/components/ui/AddTransactionSheet'
+import ModeToggle from '@/components/ui/ModeToggle'
+import { useAccountMode } from '@/hooks/useAccountMode'
 
 interface DashboardState {
   totalSpent: number
@@ -23,6 +25,7 @@ interface DashboardState {
 
 export default function DashboardPage() {
   const [period, setPeriod] = useState(getCurrentPeriod())
+  const { mode, accountTypeParam, loaded } = useAccountMode()
   const [state, setState] = useState<DashboardState>({
     totalSpent: 0,
     totalIncome: 0,
@@ -38,17 +41,13 @@ export default function DashboardPage() {
   const loadData = async () => {
     setState((s) => ({ ...s, loading: true }))
 
-    // Load budget status
-    const budgetRes = await fetch(`/api/budgets/status?period=${period}`)
+    // Load budget status with account type filter
+    const budgetRes = await fetch(`/api/budgets/status?period=${period}&account_type=${accountTypeParam}`)
     const budgetData = await budgetRes.json()
 
-    // Load recent transactions
-    const { data: txData } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('statement_period', period)
-      .order('transaction_date', { ascending: false })
-      .limit(5)
+    // Load recent transactions with account type filter
+    const txRes = await fetch(`/api/transactions?period=${period}&account_type=${accountTypeParam}&limit=5`)
+    const txData = await txRes.json()
 
     setState({
       totalSpent: budgetData.totalSpent || 0,
@@ -57,14 +56,14 @@ export default function DashboardPage() {
       daysLeft: budgetData.daysLeft || 0,
       dailyBudgetRemaining: budgetData.dailyBudgetRemaining || 0,
       budgetStatuses: budgetData.statuses || [],
-      recentTransactions: txData || [],
+      recentTransactions: txData.data || [],
       loading: false,
     })
   }
 
   useEffect(() => {
-    loadData()
-  }, [period])
+    if (loaded) loadData()
+  }, [period, mode, loaded])
 
   const navigateMonth = (dir: -1 | 1) => {
     const [y, m] = period.split('-').map(Number)
@@ -90,6 +89,9 @@ export default function DashboardPage() {
 
   return (
     <div className="px-4 pt-6">
+      {/* Mode Toggle */}
+      <ModeToggle />
+
       {/* Month Picker */}
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => navigateMonth(-1)} className="p-2 text-slate-400 active:text-white">

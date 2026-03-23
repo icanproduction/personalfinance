@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Search, Filter } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { formatPeriod, getCurrentPeriod, formatRupiah } from '@/lib/format'
 import { getCategoryLabel } from '@/types/database'
 import { getAllCategories } from '@/lib/categories'
 import type { Transaction } from '@/types/database'
 import TransactionItem from '@/components/ui/TransactionItem'
+import ModeToggle from '@/components/ui/ModeToggle'
+import { useAccountMode } from '@/hooks/useAccountMode'
 
 export default function TransactionsPage() {
   const [period, setPeriod] = useState(getCurrentPeriod())
+  const { mode, accountTypeParam, loaded } = useAccountMode()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -20,25 +22,24 @@ export default function TransactionsPage() {
   const [totalCredit, setTotalCredit] = useState(0)
 
   const loadTransactions = useCallback(async () => {
+    if (!loaded) return
     setLoading(true)
 
-    let query = supabase
-      .from('transactions')
-      .select('*')
-      .eq('statement_period', period)
-      .order('transaction_date', { ascending: false })
-      .limit(100)
-
+    let url = `/api/transactions?period=${period}&account_type=${accountTypeParam}&limit=100`
     if (filterCategory) {
-      query = query.eq('category', filterCategory)
+      url += `&category=${filterCategory}`
     }
 
+    const res = await fetch(url)
+    const { data } = await res.json()
+    let txs: Transaction[] = data || []
+
+    // Client-side search filter
     if (search) {
-      query = query.ilike('description', `%${search}%`)
+      const s = search.toLowerCase()
+      txs = txs.filter(t => t.description?.toLowerCase().includes(s))
     }
 
-    const { data } = await query
-    const txs = data || []
     setTransactions(txs)
 
     const debit = txs.filter(t => t.transaction_type === 'debit').reduce((s, t) => s + Number(t.amount), 0)
@@ -46,7 +47,7 @@ export default function TransactionsPage() {
     setTotalDebit(debit)
     setTotalCredit(credit)
     setLoading(false)
-  }, [period, filterCategory, search])
+  }, [period, mode, loaded, filterCategory, search, accountTypeParam])
 
   useEffect(() => {
     loadTransactions()
@@ -68,6 +69,9 @@ export default function TransactionsPage() {
 
   return (
     <div className="px-4 pt-6">
+      {/* Mode Toggle */}
+      <ModeToggle />
+
       {/* Month Picker */}
       <div className="flex items-center justify-between mb-4">
         <button onClick={() => navigateMonth(-1)} className="p-2 text-slate-400">

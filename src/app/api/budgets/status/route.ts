@@ -14,6 +14,17 @@ export async function GET(req: NextRequest) {
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const accountTypeParam = searchParams.get('account_type')
 
+  // Resolve account IDs from account_type filter
+  let accountIds: string[] | null = null
+  if (accountTypeParam) {
+    const accountTypes = accountTypeParam.split(',').map(t => t.trim())
+    const { data: accounts } = await supabase
+      .from('accounts')
+      .select('id')
+      .in('account_type', accountTypes)
+    accountIds = (accounts || []).map(a => a.id)
+  }
+
   // 1. Get all active budget categories
   const { data: budgets, error: budgetError } = await supabase
     .from('budget_categories')
@@ -28,13 +39,12 @@ export async function GET(req: NextRequest) {
   // 2. Get spending per category for the period (debit only)
   let spendingQuery = supabase
     .from('transactions')
-    .select('category, amount, account:accounts!transactions_account_id_fkey(account_type)')
+    .select('category, amount')
     .eq('statement_period', period)
     .eq('transaction_type', 'debit')
 
-  if (accountTypeParam) {
-    const accountTypes = accountTypeParam.split(',').map(t => t.trim())
-    spendingQuery = spendingQuery.in('account.account_type', accountTypes)
+  if (accountIds) {
+    spendingQuery = spendingQuery.in('account_id', accountIds)
   }
 
   const { data: spending, error: spendingError } = await spendingQuery
@@ -56,13 +66,12 @@ export async function GET(req: NextRequest) {
   // 4. Get total income (credit) for the period
   let incomeQuery = supabase
     .from('transactions')
-    .select('amount, account:accounts!transactions_account_id_fkey(account_type)')
+    .select('amount')
     .eq('statement_period', period)
     .eq('transaction_type', 'credit')
 
-  if (accountTypeParam) {
-    const accountTypes = accountTypeParam.split(',').map(t => t.trim())
-    incomeQuery = incomeQuery.in('account.account_type', accountTypes)
+  if (accountIds) {
+    incomeQuery = incomeQuery.in('account_id', accountIds)
   }
 
   const { data: income } = await incomeQuery

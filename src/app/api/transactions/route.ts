@@ -17,6 +17,17 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50')
   const offset = parseInt(searchParams.get('offset') || '0')
 
+  // Resolve account IDs from account_type filter
+  let accountIds: string[] | null = null
+  if (accountTypeParam) {
+    const accountTypes = accountTypeParam.split(',').map(t => t.trim())
+    const { data: accounts } = await supabase
+      .from('accounts')
+      .select('id')
+      .in('account_type', accountTypes)
+    accountIds = (accounts || []).map(a => a.id)
+  }
+
   let query = supabase
     .from('transactions')
     .select('*, account:accounts!transactions_account_id_fkey(account_name, account_type)', { count: 'exact' })
@@ -32,9 +43,8 @@ export async function GET(req: NextRequest) {
   if (category) {
     query = query.eq('category', category)
   }
-  if (accountTypeParam) {
-    const accountTypes = accountTypeParam.split(',').map(t => t.trim())
-    query = query.in('account.account_type', accountTypes)
+  if (accountIds) {
+    query = query.in('account_id', accountIds)
   }
 
   const { data, error, count } = await query

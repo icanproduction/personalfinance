@@ -6,9 +6,12 @@ import { formatRupiah, formatShort, formatPeriod, getCurrentPeriod } from '@/lib
 import { getCategoryLabel } from '@/types/database'
 import type { BudgetStatus } from '@/types/database'
 import BudgetBar from '@/components/ui/BudgetBar'
+import ModeToggle from '@/components/ui/ModeToggle'
+import { useAccountMode } from '@/hooks/useAccountMode'
 
 export default function BudgetPage() {
   const [period, setPeriod] = useState(getCurrentPeriod())
+  const { mode, accountTypeParam, loaded } = useAccountMode()
   const [statuses, setStatuses] = useState<BudgetStatus[]>([])
   const [totalSpent, setTotalSpent] = useState(0)
   const [totalBudget, setTotalBudget] = useState(0)
@@ -18,7 +21,7 @@ export default function BudgetPage() {
 
   const loadBudgets = async () => {
     setLoading(true)
-    const res = await fetch(`/api/budgets/status?period=${period}`)
+    const res = await fetch(`/api/budgets/status?period=${period}&account_type=${accountTypeParam}`)
     const data = await res.json()
     setStatuses(data.statuses || [])
     setTotalSpent(data.totalSpent || 0)
@@ -27,8 +30,8 @@ export default function BudgetPage() {
   }
 
   useEffect(() => {
-    loadBudgets()
-  }, [period])
+    if (loaded) loadBudgets()
+  }, [period, mode, loaded])
 
   const navigateMonth = (dir: -1 | 1) => {
     const [y, m] = period.split('-').map(Number)
@@ -64,6 +67,9 @@ export default function BudgetPage() {
 
   return (
     <div className="px-4 pt-6">
+      {/* Mode Toggle */}
+      <ModeToggle />
+
       {/* Month Picker */}
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => navigateMonth(-1)} className="p-2 text-slate-400">

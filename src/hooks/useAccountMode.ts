@@ -1,39 +1,53 @@
-import { useState, useEffect } from 'react'
+'use client'
+
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React from 'react'
 
 export type AccountMode = 'personal' | 'business'
 
-export function useAccountMode() {
-  const [mode, setMode] = useState<AccountMode>('personal')
+interface AccountModeContextType {
+  mode: AccountMode
+  setMode: (mode: AccountMode) => void
+  loaded: boolean
+  accountTypes: string[]
+  accountTypeParam: string
+}
+
+const AccountModeContext = createContext<AccountModeContextType>({
+  mode: 'personal',
+  setMode: () => {},
+  loaded: false,
+  accountTypes: ['personal', 'credit_card'],
+  accountTypeParam: 'personal,credit_card',
+})
+
+export function AccountModeProvider({ children }: { children: ReactNode }) {
+  const [mode, setModeState] = useState<AccountMode>('personal')
   const [loaded, setLoaded] = useState(false)
 
-  // Load from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('ican-account-mode') as AccountMode | null
     if (saved && (saved === 'personal' || saved === 'business')) {
-      setMode(saved)
+      setModeState(saved)
     }
     setLoaded(true)
   }, [])
 
-  // Save to localStorage when mode changes
-  const updateMode = (newMode: AccountMode) => {
-    setMode(newMode)
+  const setMode = (newMode: AccountMode) => {
+    setModeState(newMode)
     localStorage.setItem('ican-account-mode', newMode)
   }
 
-  // Get account types for current mode
-  const getAccountTypes = (): string[] => {
-    if (mode === 'personal') {
-      return ['personal', 'credit_card'] // Personal mode shows personal + credit card
-    } else {
-      return ['business'] // Business mode shows business only
-    }
-  }
+  const accountTypes = mode === 'personal' ? ['personal', 'credit_card'] : ['business']
+  const accountTypeParam = accountTypes.join(',')
 
-  return {
-    mode,
-    setMode: updateMode,
-    loaded,
-    accountTypes: getAccountTypes(),
-  }
+  return React.createElement(
+    AccountModeContext.Provider,
+    { value: { mode, setMode, loaded, accountTypes, accountTypeParam } },
+    children
+  )
+}
+
+export function useAccountMode() {
+  return useContext(AccountModeContext)
 }
